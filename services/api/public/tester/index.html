@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Receipt Lab · JuiceList</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/tester/styles.css">
+    <script src="/tester/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to receipt tester</a>
+
+    <header class="site-header">
+      <div>
+        <p class="product-name">JuiceList</p>
+        <p class="tool-name">Receipt Lab</p>
+      </div>
+      <span class="environment-badge">Local testing tool</span>
+    </header>
+
+    <main id="main-content" class="workspace">
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <h1 id="page-title">See what the scanner sees.</h1>
+          <p>Upload one receipt, inspect every extracted item, then compare the result with the paper.</p>
+        </div>
+        <p class="privacy-note">
+          Local-only mode: the image is processed on this computer and is not written to Supabase.
+        </p>
+      </section>
+
+      <div class="workbench">
+        <section class="capture-panel" aria-labelledby="upload-title">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Input</p>
+              <h2 id="upload-title">Receipt image</h2>
+            </div>
+            <button id="clear-button" class="text-button" type="button" disabled>Clear</button>
+          </div>
+
+          <div id="drop-zone" class="drop-zone" aria-describedby="upload-help">
+            <input
+              id="receipt-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              hidden
+            >
+            <div id="empty-preview" class="empty-preview">
+              <svg aria-hidden="true" viewBox="0 0 48 48" width="48" height="48">
+                <path d="M10 8h28v32H10zM15 15h18M15 21h18M15 27h12M15 33h8" />
+              </svg>
+              <p>Drop a receipt here</p>
+              <span>or</span>
+              <button id="choose-button" class="secondary-button" type="button">Choose receipt</button>
+              <small id="upload-help">JPEG, PNG or WebP · maximum 10 MB</small>
+            </div>
+
+            <figure id="image-preview" class="image-preview" hidden>
+              <img id="receipt-image" alt="Selected receipt preview">
+              <div id="scan-rail" class="scan-rail" aria-hidden="true"></div>
+              <figcaption id="file-summary"></figcaption>
+            </figure>
+          </div>
+
+          <button id="scan-button" class="primary-button" type="button" disabled>
+            <span class="button-idle">Run receipt scan</span>
+            <span class="button-loading" hidden>Scanning receipt…</span>
+          </button>
+
+          <p id="status-message" class="status-message" role="status" aria-live="polite"></p>
+          <p id="error-message" class="error-message" role="alert" hidden></p>
+        </section>
+
+        <section id="results-panel" class="results-panel" aria-labelledby="results-title" aria-busy="false">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Output</p>
+              <h2 id="results-title" tabindex="-1">Extraction results</h2>
+            </div>
+          </div>
+
+          <div id="results-empty" class="results-empty">
+            <p class="empty-title">No scan yet</p>
+            <p>The detected store, line items and raw OCR will appear here.</p>
+          </div>
+
+          <div id="results-content" hidden>
+            <dl class="scan-summary">
+              <div>
+                <dt>Store</dt>
+                <dd id="store-value">—</dd>
+              </div>
+              <div>
+                <dt>Items</dt>
+                <dd id="item-count-value">0</dd>
+              </div>
+              <div>
+                <dt>Needs review</dt>
+                <dd id="review-count-value">0</dd>
+              </div>
+              <div>
+                <dt>OCR</dt>
+                <dd id="provider-value">—</dd>
+              </div>
+              <div>
+                <dt>Duration</dt>
+                <dd id="duration-value">—</dd>
+              </div>
+            </dl>
+
+            <div id="items-empty" class="items-empty" hidden>
+              No purchasable items were detected. Check the raw OCR below to determine whether OCR or parsing failed.
+            </div>
+
+            <div id="items-table-wrap" class="table-wrap">
+              <table>
+                <caption>Structured receipt items</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Product</th>
+                    <th scope="col">Arabic</th>
+                    <th scope="col" class="numeric">Qty</th>
+                    <th scope="col" class="numeric">Unit</th>
+                    <th scope="col" class="numeric">Total</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="items-body"></tbody>
+              </table>
+            </div>
+
+            <details>
+              <summary>Raw OCR text</summary>
+              <pre id="raw-output" dir="auto"></pre>
+            </details>
+
+            <details>
+              <summary>Complete JSON response</summary>
+              <pre id="json-output"></pre>
+            </details>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

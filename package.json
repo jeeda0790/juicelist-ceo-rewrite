@@ -1,0 +1,15 @@
+{
+  "name": "juicelist",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/mobile",
+    "services/api"
+  ],
+  "scripts": {
+    "start:api": "npm --workspace @juicelist/api start",
+    "dev:api": "npm --workspace @juicelist/api run dev",
+    "start:mobile": "npm --workspace @juicelist/mobile start",
+    "test": "npm --workspace @juicelist/api test"
+  }
+}
