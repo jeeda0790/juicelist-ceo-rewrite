@@ -42,14 +42,26 @@ function getWorker() {
   return workerPromise;
 }
 
+/**
+ * Re-encodes the incoming image into a clean, standard JPEG before handing
+ * it to Tesseract's native decoder (Leptonica). Real-world photos (WhatsApp
+ * exports, HEIC-as-JPEG, unusual EXIF orientation/color profiles, etc.) can
+ * carry encoding quirks that Leptonica fails to read with an opaque
+ * "Unknown format: no pix returned" error. That failure occurs inside
+ * Tesseract's background worker as an unlistened 'error' event, which
+ * crashes the entire Node process rather than just this request — sharp
+ * (already a project dependency) is a much more tolerant decoder, so
+ * normalizing through it first prevents that class of crash outright.
+ */
 async function normalizeForOcr(imageBuffer) {
   try {
     return await sharp(imageBuffer)
-      .rotate()
+      .rotate() // apply EXIF orientation instead of leaving it as metadata
       .jpeg({ quality: 92 })
       .toBuffer();
   } catch (error) {
-    const normalizationError = new Error('Could not read the uploaded image — it may be corrupted or in an unsupported format');
+    console.error('SHARP NORMALIZATION FAILED — underlying error:', error);
+    const normalizationError = new Error(`Could not read the uploaded image — it may be corrupted or in an unsupported format (${error.message})`);
     normalizationError.statusCode = 422;
     normalizationError.code = 'UNREADABLE_IMAGE';
     throw normalizationError;
@@ -75,6 +87,9 @@ async function runRecognition(imageBuffer) {
 
 function recognizeReceipt(imageBuffer) {
   const recognition = recognitionQueue.then(() => runRecognition(imageBuffer));
+  // Keep the queue alive even if this recognition fails, and make sure a
+  // failure here is a normal rejected promise our route's try/catch can
+  // handle — never an uncaught exception that takes the whole server down.
   recognitionQueue = recognition.catch(() => undefined);
   return recognition;
 }
