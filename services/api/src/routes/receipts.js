@@ -4,6 +4,8 @@ const supabase = require('../config/supabase');
 const { scanReceipt } = require('../services/receipts/scan-receipt');
 const { hasArabic, sanitizeText } = require('../services/receipts/normalization');
 const { receiptUpload } = require('../middleware/receipt-upload');
+const { getOrCreateStoreId } = require('../services/receipts/store-lookup');
+const { uploadReceiptImage } = require('../services/receipts/image-storage');
 
 function sanitize(text) {
   return sanitizeText(text);
@@ -37,12 +39,15 @@ router.post('/scan', receiptUpload.single('image'), async (req, res) => {
     const cleanText = sanitize(raw_text) || '';
     const cleanStore = sanitize(store) || 'GENERIC';
 
-    const fileName = `receipt_${Date.now()}.jpg`;
-    const imageUrl = `local://${fileName}`;
+    const [{ publicUrl: imageUrl }, storeId] = await Promise.all([
+      uploadReceiptImage(imageBuffer, req.file.mimetype),
+      getOrCreateStoreId(cleanStore),
+    ]);
 
     const { data: receipt, error: receiptError } = await supabase
       .from('receipts')
       .insert({
+        store_id: storeId,
         store_name: cleanStore,
         image_url: imageUrl,
         raw_ocr_text: cleanText,
@@ -164,6 +169,7 @@ router.post('/:receiptId/finalize', async (req, res) => {
       .filter(item => !item.needs_review)
       .map(item => ({
         receipt_id: receiptId,
+        store_id: receipt.store_id,
         store_name: sanitize(receipt.store_name),
         raw_name: sanitize(item.raw_name),
         raw_name_ar: sanitize(item.raw_name_ar),
