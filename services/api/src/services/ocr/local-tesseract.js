@@ -53,6 +53,10 @@ async function normalizeForOcr(imageBuffer) {
   try {
     metadata = await sharp(imageBuffer).metadata();
   } catch (error) {
+    console.error('sharp could not decode uploaded image:', error.message, {
+      bufferLength: imageBuffer?.length,
+      first16Bytes: imageBuffer?.subarray(0, 16).toString('hex'),
+    });
     const unsupportedError = new Error(
       'Unsupported or corrupted image file. Please upload a JPEG or PNG photo (not HEIC/WebP/screenshot format).'
     );
