@@ -43,13 +43,31 @@ function getWorker() {
 }
 
 async function normalizeForOcr(imageBuffer) {
+  // First, confirm sharp can actually read this as an image at all. If it
+  // can't, the buffer is corrupt or an unsupported format (e.g. a HEIC file
+  // renamed to .jpeg). In that case we must NOT hand it to Tesseract — a
+  // broken buffer crashes the Tesseract worker at a level that bypasses our
+  // try/catch entirely (an uncaught process-level exception), which is what
+  // was producing the empty 500 errors.
+  let metadata;
+  try {
+    metadata = await sharp(imageBuffer).metadata();
+  } catch (error) {
+    const unsupportedError = new Error(
+      'Unsupported or corrupted image file. Please upload a JPEG or PNG photo (not HEIC/WebP/screenshot format).'
+    );
+    unsupportedError.statusCode = 400;
+    unsupportedError.code = 'UNSUPPORTED_IMAGE_FORMAT';
+    throw unsupportedError;
+  }
+
   try {
     return await sharp(imageBuffer)
       .rotate()
       .jpeg({ quality: 92 })
       .toBuffer();
   } catch (error) {
-    console.warn('Image normalization skipped, using original buffer:', error.message);
+    console.warn('Image normalization skipped, using original buffer:', error.message, metadata);
     return imageBuffer;
   }
 }

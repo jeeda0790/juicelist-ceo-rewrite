@@ -18,11 +18,15 @@ test('normalizes a valid image into a clean JPEG buffer', async () => {
   assert.equal(metadata.format, 'jpeg');
 });
 
-test('falls back to the original buffer (not a crash) when sharp cannot decode the image', async () => {
+test('throws a clean, catchable error (not a crash) when sharp cannot decode the image at all', async () => {
   const garbageBuffer = Buffer.from('this is not an image, just plain text bytes');
 
-  const result = await normalizeForOcr(garbageBuffer);
-
-  assert.equal(Buffer.isBuffer(result), true);
-  assert.equal(result.equals(garbageBuffer), true);
+  await assert.rejects(
+    () => normalizeForOcr(garbageBuffer),
+    (error) => {
+      assert.equal(error.code, 'UNSUPPORTED_IMAGE_FORMAT');
+      assert.equal(error.statusCode, 400);
+      return true;
+    }
+  );
 });
