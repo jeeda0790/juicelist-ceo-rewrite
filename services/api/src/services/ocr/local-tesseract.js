@@ -1,6 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const sharp = require('sharp');
 const { createWorker, OEM } = require('tesseract.js');
 const arabicLanguage = require('@tesseract.js-data/ara');
 const englishLanguage = require('@tesseract.js-data/eng');
@@ -41,9 +42,24 @@ function getWorker() {
   return workerPromise;
 }
 
+async function normalizeForOcr(imageBuffer) {
+  try {
+    return await sharp(imageBuffer)
+      .rotate()
+      .jpeg({ quality: 92 })
+      .toBuffer();
+  } catch (error) {
+    const normalizationError = new Error('Could not read the uploaded image — it may be corrupted or in an unsupported format');
+    normalizationError.statusCode = 422;
+    normalizationError.code = 'UNREADABLE_IMAGE';
+    throw normalizationError;
+  }
+}
+
 async function runRecognition(imageBuffer) {
+  const normalizedBuffer = await normalizeForOcr(imageBuffer);
   const worker = await getWorker();
-  const { data } = await worker.recognize(imageBuffer);
+  const { data } = await worker.recognize(normalizedBuffer);
   const text = data.text || '';
 
   return {
@@ -63,4 +79,4 @@ function recognizeReceipt(imageBuffer) {
   return recognition;
 }
 
-module.exports = { recognizeReceipt };
+module.exports = { recognizeReceipt, normalizeForOcr };
