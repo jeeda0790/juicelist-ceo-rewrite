@@ -32,7 +32,74 @@ test('rejects a plausible-length block of text with no prices or receipt vocabul
   });
 
   assert.equal(result.isReceipt, false);
-  assert.ok(result.reasons.includes('no_receipt_signals_found'));
+  assert.ok(result.reasons.includes('insufficient_combined_signals'));
+});
+
+test('rejects a single signal alone even when it is a receipt-vocabulary word (needs a second signal)', () => {
+  const result = looksLikeReceipt({
+    text: 'MEAT MASTER\nCASHIER: 12\nsome garbled ocr noise here\nno prices or currency visible',
+  });
+
+  assert.equal(result.isReceipt, false);
+  assert.ok(result.reasons.includes('receipt_vocabulary_term'));
+  assert.ok(result.reasons.includes('insufficient_combined_signals'));
+});
+
+test('accepts receipt vocabulary combined with a currency term, even without a clean decimal price line', () => {
+  const result = looksLikeReceipt({
+    text: 'MEAT MASTER\nCASHIER: 12\nAmount due in JOD\nsome garbled ocr noise here',
+  });
+
+  assert.equal(result.isReceipt, true);
+  assert.ok(result.reasons.includes('receipt_vocabulary_term'));
+  assert.ok(result.reasons.includes('currency_term'));
+});
+
+test('rejects a social-media stats screenshot with comma-grouped numbers that look like decimals', () => {
+  // Real false-positive case: "Views 63,436" / "Viewers 17,148" parse as
+  // decimal-looking numbers, but there is no currency term or receipt
+  // vocabulary anywhere, so a single signal type must not be enough.
+  const result = looksLikeReceipt({
+    text: 'Insights\nOverview Content Audience\nAll content 30 days\nViews 63,436\nNet followers +101\nInteractions 1,729\nViewers 17,148\nStories 31K',
+  });
+
+  assert.equal(result.isReceipt, false);
+  assert.ok(result.reasons.includes('insufficient_combined_signals'));
+});
+
+test('rejects a shopping page with one price and a generic word like "discount"', () => {
+  // Real false-positive case: a product page with "Extra 27% discount" and a
+  // single price ("€67,41") used to trip both the (now-removed, too-generic)
+  // "discount" vocabulary term and a lone decimal.
+  const result = looksLikeReceipt({
+    text: 'Every 4 weeks\nExtra 27% discount\nMaximum savings\nAdd to Cart | 27% OFF | 67,41\nWe ship to Jordan\nNeed help?',
+  });
+
+  assert.equal(result.isReceipt, false);
+  assert.ok(result.reasons.includes('insufficient_combined_signals'));
+});
+
+test('rejects an app screenshot whose nav bar happens to contain a currency label', () => {
+  // Real false-positive case: a LinkedIn screenshot with "JOD 0" in the nav
+  // bar tripped the currency-term signal alone with nothing else receipt-like.
+  const result = looksLikeReceipt({
+    text: 'Search\nHome My Network Jobs Messaging Notifications Me For Business JOD 0\nA provocative title\n150\n5 comments 16 reposts\nMost relevant',
+  });
+
+  assert.equal(result.isReceipt, false);
+  assert.ok(result.reasons.includes('currency_term'));
+  assert.ok(result.reasons.includes('insufficient_combined_signals'));
+});
+
+test('accepts a long itemized price column on its own, even with no currency term or vocabulary visible', () => {
+  // A heavily cropped receipt photo might show only the item/price column.
+  // Six or more valid decimal price lines is treated as strong enough on its own.
+  const result = looksLikeReceipt({
+    text: 'ITEM A\n1.200\nITEM B\n3.100\nITEM C\n1.080\nITEM D\n0.600\nITEM E\n8.750\nITEM F\n21.000',
+  });
+
+  assert.equal(result.isReceipt, true);
+  assert.ok(result.reasons.some(r => r.startsWith('valid_decimals:')));
 });
 
 test('accepts text with receipt vocabulary even without a clean decimal price line', () => {
