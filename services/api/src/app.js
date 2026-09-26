@@ -24,7 +24,9 @@ function createApp({ scanReceipt, enableTester, enableDatabaseRoutes } = {}) {
 
   if (databaseRoutesEnabled) {
     const receiptsRouter = require('./routes/receipts');
+    const authRouter = require('./routes/auth');
     app.use('/api/receipts', receiptsRouter);
+    app.use('/api/auth', authRouter);
   }
 
   app.get('/', (req, res) => {

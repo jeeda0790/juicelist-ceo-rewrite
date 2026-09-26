@@ -6,33 +6,18 @@ const { hasArabic, sanitizeText } = require('../services/receipts/normalization'
 const { receiptUpload } = require('../middleware/receipt-upload');
 const { getOrCreateStoreId } = require('../services/receipts/store-lookup');
 const { uploadReceiptImage } = require('../services/receipts/image-storage');
+const { requireAuth } = require('../middleware/require-auth');
 
 function sanitize(text) {
   return sanitizeText(text);
 }
 
-async function getUserFromRequest(req) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
-  const token = authHeader.split(' ')[1];
-  try {
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data?.user) return null;
-    return data.user;
-  } catch (e) {
-    return null;
-  }
-}
-
-router.post('/scan', receiptUpload.single('image'), async (req, res) => {
+router.post('/scan', requireAuth, receiptUpload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'Receipt image is required' });
     }
 
-    const user = await getUserFromRequest(req);
     const imageBuffer = req.file.buffer;
     const { store, items, raw_text, ocr_provider } = await scanReceipt(imageBuffer);
 
@@ -52,7 +37,7 @@ router.post('/scan', receiptUpload.single('image'), async (req, res) => {
         image_url: imageUrl,
         raw_ocr_text: cleanText,
         status: 'pending',
-        user_id: user ? user.id : null,
+        user_id: req.userId,
       })
       .select()
       .single();
@@ -100,9 +85,27 @@ router.post('/scan', receiptUpload.single('image'), async (req, res) => {
   }
 });
 
-router.patch('/:receiptId/items/:itemId', async (req, res) => {
+async function assertReceiptOwnedByUser(receiptId, userId) {
+  const { data: receipt, error } = await supabase
+    .from('receipts')
+    .select('id, user_id')
+    .eq('id', receiptId)
+    .single();
+
+  if (error) throw error;
+
+  if (!receipt || receipt.user_id !== userId) {
+    const ownershipError = new Error('Receipt not found');
+    ownershipError.statusCode = 404;
+    throw ownershipError;
+  }
+}
+
+router.patch('/:receiptId/items/:itemId', requireAuth, async (req, res) => {
   try {
     const { receiptId, itemId } = req.params;
+    await assertReceiptOwnedByUser(receiptId, req.userId);
+
     const { raw_name, raw_name_ar, quantity, unit_price } = req.body;
     const parsedQuantity = Number(quantity);
     const parsedUnitPrice = Number(unit_price);
@@ -142,13 +145,14 @@ router.patch('/:receiptId/items/:itemId', async (req, res) => {
     res.json({ success: true, item: data });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(err.statusCode || 500).json({ success: false, error: err.message });
   }
 });
 
-router.post('/:receiptId/finalize', async (req, res) => {
+router.post('/:receiptId/finalize', requireAuth, async (req, res) => {
   try {
     const { receiptId } = req.params;
+    await assertReceiptOwnedByUser(receiptId, req.userId);
 
     const { data: items, error: itemsError } = await supabase
       .from('receipt_items')
@@ -198,7 +202,7 @@ router.post('/:receiptId/finalize', async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(err.statusCode || 500).json({ success: false, error: err.message });
   }
 });
 

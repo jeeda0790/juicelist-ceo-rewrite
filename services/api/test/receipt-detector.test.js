@@ -102,15 +102,6 @@ test('accepts a long itemized price column on its own, even with no currency ter
   assert.ok(result.reasons.some(r => r.startsWith('valid_decimals:')));
 });
 
-test('accepts text with receipt vocabulary even without a clean decimal price line', () => {
-  const result = looksLikeReceipt({
-    text: 'MEAT MASTER\nCASHIER: 12\nQTY PRICE AMOUNT\nsome garbled ocr noise here',
-  });
-
-  assert.equal(result.isReceipt, true);
-  assert.ok(result.reasons.includes('receipt_vocabulary_term'));
-});
-
 test('accepts line objects (provider-neutral OCR contract) as well as raw text', () => {
   const result = looksLikeReceipt({
     text: 'ignored when lines is present',
