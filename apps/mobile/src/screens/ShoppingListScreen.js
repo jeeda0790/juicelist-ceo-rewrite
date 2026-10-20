@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, SafeAreaView, TouchableOpacity, RefreshControl } from 'react-native';
-import { supabase } from '../config/supabase';
+import { apiRequest } from '../config/api';
 
 export default function ShoppingListScreen() {
   const [items, setItems] = useState([]);
@@ -9,14 +9,10 @@ export default function ShoppingListScreen() {
 
   const fetchItems = async () => {
     try {
-      const { data, error } = await supabase
-        .from('receipt_items')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (!error && data) {
-        setItems(data);
+      // Only this user's own items come back; the server checks who is signed in.
+      const data = await apiRequest('/api/receipts/my-items');
+      if (data.success) {
+        setItems(data.items);
       }
     } catch (err) {
       console.error(err);

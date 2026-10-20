@@ -206,6 +206,41 @@ router.post('/:receiptId/finalize', requireAuth, async (req, res) => {
   }
 });
 
+// The signed-in user's own scanned items, newest first. Only receipts that
+// belong to the caller (receipts.user_id) are ever read, so one user can never
+// see another user's shopping list.
+router.get('/my-items', requireAuth, async (req, res) => {
+  try {
+    const { data: receipts, error: receiptsError } = await supabase
+      .from('receipts')
+      .select('id')
+      .eq('user_id', req.userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (receiptsError) throw receiptsError;
+
+    const receiptIds = (receipts || []).map(receipt => receipt.id);
+    if (receiptIds.length === 0) {
+      return res.json({ success: true, items: [] });
+    }
+
+    const { data: items, error: itemsError } = await supabase
+      .from('receipt_items')
+      .select('*')
+      .in('receipt_id', receiptIds)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (itemsError) throw itemsError;
+
+    res.json({ success: true, items: items || [] });
+  } catch (err) {
+    console.error(err);
+    res.status(err.statusCode || 500).json({ success: false, error: err.message });
+  }
+});
+
 router.get('/prices/:productName', async (req, res) => {
   try {
     const { productName } = req.params;

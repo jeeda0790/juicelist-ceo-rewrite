@@ -1,7 +1,17 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 
 export default function HomeScreen({ navigation }) {
+  const { user, signOut } = useAuth();
+
+  const confirmSignOut = () => {
+    Alert.alert('Sign out', 'Do you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: signOut },
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -13,6 +23,12 @@ export default function HomeScreen({ navigation }) {
           onPress={() => navigation.navigate('Scan')}
         >
           <Text style={styles.scanButtonText}>📷 Scan Receipt</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.signOutButton} onPress={confirmSignOut}>
+          <Text style={styles.signOutText}>
+            {user?.phone ? `Signed in as ${user.phone}. Sign out` : 'Sign out'}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -52,5 +68,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  signOutButton: {
+    marginTop: 32,
+    padding: 8,
+  },
+  signOutText: {
+    color: '#666',
+    fontSize: 14,
   },
 });
