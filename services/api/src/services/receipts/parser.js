@@ -66,6 +66,8 @@ function isSummaryOrMetadata(line) {
   if (headerMatches >= 2) return true;
   if (/^(?:tel|pos|inv|customer|customer name|branch)\b/i.test(normalized)) return true;
   if (/\b(?:thank you|hope to see|tax no|invoice no|invoice date)\b/i.test(normalized)) return true;
+  // Footer lines that OCR often garbles but that are never products.
+  if (/\b(?:vat\s*amount|lo[yu]a?lt?y\s*card|number of ite?ms|issue points|apply for the card)\b/i.test(normalized)) return true;
   return false;
 }
 

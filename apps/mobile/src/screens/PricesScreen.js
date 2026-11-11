@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { apiRequest } from '../config/api';
+import { formatUnitPrice, unitLabel } from '../utils/unit-price';
 
 export default function PricesScreen() {
   const [query, setQuery] = useState('');
   const [prices, setPrices] = useState([]);
+  const [cheapest, setCheapest] = useState({});
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
@@ -17,10 +19,12 @@ export default function PricesScreen() {
       const data = await apiRequest(`/api/receipts/prices/${encodeURIComponent(query)}`);
       if (data.success) {
         setPrices(data.prices);
+        setCheapest(data.cheapest_per_unit || {});
       }
     } catch (error) {
       console.error(error);
       setPrices([]);
+      setCheapest({});
     } finally {
       setLoading(false);
     }
@@ -33,6 +37,7 @@ export default function PricesScreen() {
         <Text style={styles.itemPrice}>{item.unit_price} JD</Text>
       </View>
       <Text style={styles.storeLabel}>{item.store_name}</Text>
+      {formatUnitPrice(item.unit_info) && <Text style={styles.unitPrice}>{formatUnitPrice(item.unit_info)}</Text>}
     </View>
   );
 
@@ -60,6 +65,15 @@ export default function PricesScreen() {
           <Text style={styles.emptyText}>No prices found</Text>
         </View>
       )}
+
+      {Object.entries(cheapest).map(([baseUnit, best]) => (
+        <View key={baseUnit} style={styles.cheapestCard}>
+          <Text style={styles.cheapestTitle}>Cheapest per {unitLabel(baseUnit)}</Text>
+          <Text style={styles.cheapestText}>
+            {best.store_name}: {formatUnitPrice(best.unit_info)}
+          </Text>
+        </View>
+      ))}
 
       <FlatList
         data={prices}
@@ -101,6 +115,16 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 15, fontWeight: '600', flex: 1, color: '#222' },
   itemPrice: { fontSize: 15, fontWeight: 'bold', color: '#2e7d32' },
   storeLabel: { fontSize: 13, color: '#666', marginTop: 4 },
+  unitPrice: { fontSize: 12, color: '#666', marginTop: 2 },
+  cheapestCard: {
+    backgroundColor: '#e8f5e9',
+    borderRadius: 10,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  cheapestTitle: { fontSize: 12, color: '#2e7d32', fontWeight: '600' },
+  cheapestText: { fontSize: 15, color: '#1b5e20', fontWeight: 'bold', marginTop: 2 },
   emptyState: { alignItems: 'center', marginTop: 40 },
   emptyText: { fontSize: 16, color: '#999' },
 });

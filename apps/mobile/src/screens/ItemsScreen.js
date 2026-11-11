@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, TextInput, Alert } from 'react-native';
 import { apiRequest } from '../config/api';
+import { formatUnitPrice } from '../utils/unit-price';
 
 export default function ItemsScreen({ route, navigation }) {
   const { receiptId, items: initialItems, store } = route.params;
@@ -72,6 +73,7 @@ export default function ItemsScreen({ route, navigation }) {
           <Text style={styles.itemName}>{item.raw_name || item.raw_name_ar || 'Unknown item'}</Text>
           <Text style={styles.itemPrice}>{item.unit_price} JD</Text>
         </View>
+        {formatUnitPrice(item.unit_info) && <Text style={styles.unitPrice}>{formatUnitPrice(item.unit_info)}</Text>}
         {item.needs_review && <Text style={styles.reviewBadge}>⚠️ Tap to confirm</Text>}
       </TouchableOpacity>
     );
@@ -107,6 +109,7 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: 'row', justifyContent: 'space-between' },
   itemName: { fontSize: 15, fontWeight: '600', flex: 1, color: '#222' },
   itemPrice: { fontSize: 15, fontWeight: 'bold', color: '#2e7d32' },
+  unitPrice: { fontSize: 12, color: '#666', marginTop: 4 },
   reviewBadge: { fontSize: 12, color: '#e65100', marginTop: 4 },
   input: {
     borderWidth: 1,

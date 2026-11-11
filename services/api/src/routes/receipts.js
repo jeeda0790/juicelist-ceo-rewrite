@@ -7,9 +7,25 @@ const { receiptUpload } = require('../middleware/receipt-upload');
 const { getOrCreateStoreId } = require('../services/receipts/store-lookup');
 const { uploadReceiptImage } = require('../services/receipts/image-storage');
 const { requireAuth } = require('../middleware/require-auth');
+const { computeUnitPrice, cheapestPerUnit } = require('../services/products/unit-normalization');
 
 function sanitize(text) {
   return sanitizeText(text);
+}
+
+// Adds the price per kg / litre / piece (when it can be worked out) so the app
+// can compare different pack sizes. Works for receipt items and for price
+// observations, which share the same name / quantity / unit_price fields.
+function withUnitInfo(row) {
+  return {
+    ...row,
+    unit_info: computeUnitPrice({
+      name: row.raw_name,
+      nameAr: row.raw_name_ar,
+      quantity: row.quantity,
+      unitPrice: row.unit_price,
+    }),
+  };
 }
 
 router.post('/scan', requireAuth, receiptUpload.single('image'), async (req, res) => {
@@ -71,7 +87,7 @@ router.post('/scan', requireAuth, receiptUpload.single('image'), async (req, res
       receipt_id: receipt.id,
       store: cleanStore,
       ocr_provider,
-      items: insertedItems,
+      items: insertedItems.map(withUnitInfo),
       needs_review_count: insertedItems.filter(i => i.needs_review).length
     });
   } catch (err) {
@@ -142,7 +158,7 @@ router.patch('/:receiptId/items/:itemId', requireAuth, async (req, res) => {
       });
     }
 
-    res.json({ success: true, item: data });
+    res.json({ success: true, item: withUnitInfo(data) });
   } catch (err) {
     console.error(err);
     res.status(err.statusCode || 500).json({ success: false, error: err.message });
@@ -234,7 +250,7 @@ router.get('/my-items', requireAuth, async (req, res) => {
 
     if (itemsError) throw itemsError;
 
-    res.json({ success: true, items: items || [] });
+    res.json({ success: true, items: (items || []).map(withUnitInfo) });
   } catch (err) {
     console.error(err);
     res.status(err.statusCode || 500).json({ success: false, error: err.message });
@@ -259,7 +275,8 @@ router.get('/prices/:productName', async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ success: true, prices: data });
+    const prices = data.map(withUnitInfo);
+    res.json({ success: true, prices, cheapest_per_unit: cheapestPerUnit(prices) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });
